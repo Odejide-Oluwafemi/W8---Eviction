@@ -109,88 +109,109 @@ contract Vault {
   }
 
   function submitTransaction(address to, uint256 value, bytes calldata data) external notPaused onlyOwners {
-  // require(!paused);
-  // require(isOwner[msg.sender]);
-  uint256 id = txCount++;
-  transactions[id] = Transaction({
-  to: to,
-  value: value,
-  data: data,
-  executed: false,
-  confirmations: 1,
-  submissionTime: block.timestamp,
-  executionTime: 0
-  });
-  confirmed[id][msg.sender] = true;
-  emit Submission(id);
+    // require(!paused);
+    // require(isOwner[msg.sender]);
+    uint256 id = txCount++;
+
+    transactions[id] = Transaction({
+      to: to,
+      value: value,
+      data: data,
+      executed: false,
+      confirmations: 1,
+      submissionTime: block.timestamp,
+      executionTime: 0
+    });
+
+    confirmed[id][msg.sender] = true;
+
+    emit Submission(id);
   }
 
-function confirmTransaction(uint256 txId) external notPaused onlyOwners {
-// require(!paused);
-// require(isOwner[msg.sender]);
-Transaction storage txn = transactions[txId];
-// require(!txn.executed);
-if (txn.executed) revert Vault__TransactionHasAlreadyBeenExecuted();
-// require(!confirmed[txId][msg.sender]);
-if (confirmed[txId][msg.sender]) revert Vault__TransactionHasAlreadyBeenConfirmed();
-confirmed[txId][msg.sender] = true;
-txn.confirmations++;
-if (txn.confirmations == multiSig.threshold()) {
-txn.executionTime = block.timestamp + TIMELOCK_DURATION;
-}
-emit Confirmation(txId, msg.sender);
-}
+  function confirmTransaction(uint256 txId) external notPaused onlyOwners {
+    // require(!paused);
+    // require(isOwner[msg.sender]);
+    Transaction storage txn = transactions[txId];
 
-function executeTransaction(uint256 txId) external {
-Transaction storage txn = transactions[txId];
-// require(txn.confirmations >= threshold);
-if (txn.confirmations < multiSig.threshold()) revert Vault__InsufficientThresholdSigners();
-// require(!txn.executed);
-if (txn.executed) revert Vault__TransactionHasAlreadyBeenExecuted();
-// require(block.timestamp >= txn.executionTime);
-if (block.timestamp > txn.executionTime) revert Vault__TransactionExecutionLocked();
-txn.executed = true;
-(bool s,) = txn.to.call{value: txn.value}(txn.data);
-// require(s);
-if (!s) revert Vault__TransactionExecutionFailed();
-emit Execution(txId);
-}
+    // require(!txn.executed);
+    if (txn.executed) revert Vault__TransactionHasAlreadyBeenExecuted();
 
-function setMerkleRoot(bytes32 root) external onlyOwners {
-multiSig.setMerkleRoot(root);
-}
+    // require(!confirmed[txId][msg.sender]);
+    if (confirmed[txId][msg.sender]) revert Vault__TransactionHasAlreadyBeenConfirmed();
 
-function claim(bytes32[] calldata proof, uint256 amount) external notPaused {
-// require(!paused);
-bool verified = multiSig.computeMerkleProof(proof, amount);
+    confirmed[txId][msg.sender] = true;
 
-if (!verified) revert Vault__UserNotVerified();
-claimed[msg.sender] = true;
-// payable(msg.sender).transfer(amount);
-(bool success, ) = msg.sender.call{value: amount} ("");
-if(!success) revert Vault__ClaimFailed();
-totalVaultValue -= amount;
-emit Claim(msg.sender, amount);
-}
+    txn.confirmations++;
 
-function emergencyWithdrawAll() external onlyOwners {
-// payable(msg.sender).transfer(address(this).balance);
+    if (txn.confirmations == multiSig.threshold()) {
+      txn.executionTime = block.timestamp + TIMELOCK_DURATION;
+    }
 
-(bool success, ) = msg.sender.call{value: address(this).balance}("");
+    emit Confirmation(txId, msg.sender);
+  }
 
-if (!success) revert Vault__EmergencyWithdrawFailed();
-// require(success, "Emergency Withdrawal Failed");
+  function executeTransaction(uint256 txId) external {
+    Transaction storage txn = transactions[txId];
 
-totalVaultValue = 0;
-}
+    // require(txn.confirmations >= threshold);
+    if (txn.confirmations < multiSig.threshold()) revert Vault__InsufficientThresholdSigners();
 
-function pause() external onlyOwners {
-// require(isOwner[msg.sender]);
-paused = true;
-}
+    // require(!txn.executed);
+    if (txn.executed) revert Vault__TransactionHasAlreadyBeenExecuted();
 
-function unpause() external onlyOwners {
-// require(isOwner[msg.sender]);
-paused = false;
-}
+    // require(block.timestamp >= txn.executionTime);
+    if (block.timestamp > txn.executionTime) revert Vault__TransactionExecutionLocked();
+
+    txn.executed = true;
+
+    (bool s,) = txn.to.call{value: txn.value}(txn.data);
+
+    // require(s);
+    if (!s) revert Vault__TransactionExecutionFailed();
+
+    emit Execution(txId);
+  }
+
+  function setMerkleRoot(bytes32 root) external onlyOwners {
+    multiSig.setMerkleRoot(root);
+  }
+
+  function claim(bytes32[] calldata proof, uint256 amount) external notPaused {
+    // require(!paused);
+    bool verified = multiSig.computeMerkleProof(proof, amount);
+
+    if (!verified) revert Vault__UserNotVerified();
+
+    claimed[msg.sender] = true;
+
+    // payable(msg.sender).transfer(amount);
+    (bool success, ) = msg.sender.call{value: amount} ("");
+
+    if(!success) revert Vault__ClaimFailed();
+
+    totalVaultValue -= amount;
+
+    emit Claim(msg.sender, amount);
+  }
+
+  function emergencyWithdrawAll() external onlyOwners {
+    // payable(msg.sender).transfer(address(this).balance);
+
+    (bool success, ) = msg.sender.call{value: address(this).balance}("");
+
+    if (!success) revert Vault__EmergencyWithdrawFailed();
+    // require(success, "Emergency Withdrawal Failed");
+
+    totalVaultValue = 0;
+  }
+
+  function pause() external onlyOwners {
+    // require(isOwner[msg.sender]);
+    paused = true;
+  }
+
+  function unpause() external onlyOwners {
+    // require(isOwner[msg.sender]);
+    paused = false;
+  }
 }
