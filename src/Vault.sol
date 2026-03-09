@@ -36,7 +36,7 @@ contract Vault {
     uint256 executionTime;
   }
 
-  MultiSig immutable multiSig;
+  MultiSig public immutable multiSig;
 
   constructor(address[] memory _owners, uint256 _threshold) payable {
     multiSig = new MultiSig(_owners, _threshold);
