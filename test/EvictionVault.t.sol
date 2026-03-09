@@ -12,6 +12,7 @@ contract EvictionVaultTest is Test {
     error Vault__TransactionHasAlreadyBeenConfirmed();
     error Vault__UserNotVerified();
     error Vault__AlreadyClaimed();
+    error Vault__EmergencyWithdrawFailed();
 
     struct Transaction {
       address to;
@@ -304,5 +305,35 @@ contract EvictionVaultTest is Test {
         vm.expectRevert(Vault__UserNotVerified.selector);
         vm.prank(attacker);
         vault.claim(proof1, amount1);
+    }
+
+    function testEmergencyWithdrawAll() public {
+        // Fund the vault
+        uint256 depositAmount = 5 ether;
+        vm.deal(address(this), depositAmount);
+        vault.deposit{value: depositAmount}();
+
+        address owner = owners[0];
+        uint256 ownerBalanceBefore = owner.balance;
+        uint256 vaultBalanceBefore = address(vault).balance;
+
+        assertEq(vaultBalanceBefore, depositAmount);
+
+        // Emergency withdraw
+        vm.prank(owner);
+        vault.emergencyWithdrawAll();
+
+        assertEq(address(vault).balance, 0);
+        assertEq(vault.getTotalVaultValue(), 0);
+        assertEq(owner.balance, ownerBalanceBefore + vaultBalanceBefore);
+    }
+
+    function testOnlyOwnersCanEmergencyWithdraw() public {
+        address nonOwner = makeAddr("nonOwner");
+        vm.deal(address(vault), 1 ether);
+
+        vm.prank(nonOwner);
+        vm.expectRevert(Vault__OnlyOwnerCanCallThisFunction.selector);
+        vault.emergencyWithdrawAll();
     }
 }
