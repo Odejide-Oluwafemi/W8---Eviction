@@ -41,4 +41,23 @@ contract EvictionVaultTest is Test {
       // Test for Threshold
       assertEq(vault.getThreshold(), THRESHOLD);
     }
+
+    function testDeposit() public {
+      address user = owners[0];
+
+      uint totalVaultValueBefore = vault.getTotalVaultValue();
+      uint balanceBefore = vault.getBalanceOf(user);
+      uint depositAmount = 1 ether;
+
+      vm.deal(user, depositAmount);
+      vm.prank(user);
+
+      vault.deposit{value: depositAmount}();
+
+      uint totalVaultValueAfter = vault.getTotalVaultValue();
+      uint balanceAfter = vault.getBalanceOf(user);
+
+      assert(balanceAfter == (balanceBefore + depositAmount));
+      assert(totalVaultValueAfter == (totalVaultValueBefore + depositAmount));
+    }
 }

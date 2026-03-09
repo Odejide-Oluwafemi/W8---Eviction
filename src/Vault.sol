@@ -38,30 +38,28 @@ contract Vault {
 
   MultiSig public immutable multiSig;
 
+  mapping(uint256 => mapping(address => bool)) private confirmed;
+
+  mapping(uint256 => Transaction) private transactions;
+
+  mapping(address => uint256) private balances;
+
+  mapping(address => bool) private claimed;
+
+  uint256 private txCount;
+
+  uint256 private constant TIMELOCK_DURATION = 1 hours;
+
+  uint256 private totalVaultValue;
+
+  bool private paused;
+
+
   constructor(address[] memory _owners, uint256 _threshold) payable {
     multiSig = new MultiSig(_owners, _threshold);
+
     totalVaultValue = msg.value;
   }
-
-
-  mapping(uint256 => mapping(address => bool)) public confirmed;
-
-  mapping(uint256 => Transaction) public transactions;
-
-  mapping(address => uint256) public balances;
-
-  mapping(address => bool) public claimed;
-
-  uint256 public txCount;
-
-  uint256 public constant TIMELOCK_DURATION = 1 hours;
-
-  uint256 public totalVaultValue;
-
-  bool public paused;
-
-
-
 
 // Modifiers
   modifier onlyOwners() {
@@ -143,7 +141,7 @@ contract Vault {
 
     txn.confirmations++;
 
-    if (txn.confirmations == multiSig.threshold()) {
+    if (txn.confirmations >= multiSig.threshold()) {
       txn.executionTime = block.timestamp + TIMELOCK_DURATION;
     }
 
@@ -185,7 +183,7 @@ contract Vault {
     claimed[msg.sender] = true;
 
     // payable(msg.sender).transfer(amount);
-    (bool success, ) = msg.sender.call{value: amount} ("");
+    (bool success, ) = msg.sender.call{value: amount}("");
 
     if(!success) revert Vault__ClaimFailed();
 
@@ -221,5 +219,13 @@ contract Vault {
 
     function getThreshold() external view returns (uint) {
       return multiSig.threshold();
+    }
+
+    function getTotalVaultValue() external view returns (uint) {
+      return totalVaultValue;
+    }
+
+    function getBalanceOf(address user) external view returns(uint) {
+      return balances[user];
     }
 }
