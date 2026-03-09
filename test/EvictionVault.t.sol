@@ -108,4 +108,21 @@ contract EvictionVaultTest is Test {
       assertEq(balanceAfterWithdraw, balanceBeforeWithdraw - depositAmount);
       assertEq(totalVaultValueAfterWithdraw, totalVaultValueBeforeWithdraw - depositAmount);
     }
+
+    function testCannotSubmitTransactionWhenPaused() public {
+      address to = address(0x1);
+      uint value = 123;
+      bytes memory data = bytes("");
+
+      vm.startPrank(owners[0]);
+
+      vault.pause();
+      vm.expectRevert(Vault__ContractIsPaused.selector);
+
+      vault.submitTransaction(to, value, data);
+
+      vm.stopPrank();
+    }
+
+    
 }
