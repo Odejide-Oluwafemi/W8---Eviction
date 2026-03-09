@@ -214,4 +214,38 @@ contract EvictionVaultTest is Test {
       vm.prank(owners[1]);
       vault.confirmTransaction(txId);
     }
+
+    function testTransactionExecution() public {
+      // Deposit
+      // First Submit a Transaction
+      address owner = owners[0];
+      vm.deal(owner, 3 ether);
+
+      uint depositAmount = 1 ether;
+      address to = address(0x1);
+      uint value = 123;
+      bytes memory data = bytes("");
+
+      vm.startPrank(owner);
+
+      vault.deposit{value: depositAmount}();
+
+      uint txId = vault.getTxCount();
+
+      vault.submitTransaction(to, value, data);
+
+      vm.stopPrank();
+
+      // Get 2 more confirmations
+      vm.prank(owners[1]);
+      vault.confirmTransaction(txId);
+
+      vm.prank(owners[2]);
+      vault.confirmTransaction(txId);
+
+      vm.prank(owner);
+      vault.executeTransaction(txId);
+
+      assert(vault.getTransaction(txId).executed == true);
+    }
 }
