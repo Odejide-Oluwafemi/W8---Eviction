@@ -214,4 +214,12 @@ contract Vault {
     // require(isOwner[msg.sender]);
     paused = false;
   }
+
+      function getOwners() external view returns (address[] memory) {
+        return multiSig.getOwners();
+    }
+
+    function getThreshold() external view returns (uint) {
+      return multiSig.threshold();
+    }
 }

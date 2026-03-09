@@ -3,6 +3,7 @@ pragma solidity ^0.8.13;
 
 import {Test} from "forge-std/Test.sol";
 import {Vault} from "src/Vault.sol";
+import {MultiSig} from "src/MultiSig.sol";
 
 contract EvictionVaultTest is Test {
     Vault public vault;
@@ -24,5 +25,20 @@ contract EvictionVaultTest is Test {
     function testMultiSigDeploys() public view {
       assert(address(vault.multiSig()) != address(0));
     }
-    // function testOwnersAreSet
+
+
+
+    function testMultiSigParametersAreSet() public view {
+      // Test for Owners Array
+      address[] memory _owners = vault.getOwners();
+
+      assertEq(owners.length, _owners.length);
+
+      for (uint i; i < owners.length; i++) {
+        assertEq(_owners[i], owners[i]);
+      }
+
+      // Test for Threshold
+      assertEq(vault.getThreshold(), THRESHOLD);
+    }
 }

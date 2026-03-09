@@ -60,4 +60,7 @@ error MultiSig__InvalidAddress();
         // return messageHash.verify()
     }
 
+          function getOwners() external view returns (address[] memory) {
+        return owners;
+    }
 }
