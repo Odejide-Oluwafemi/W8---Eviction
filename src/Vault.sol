@@ -129,13 +129,14 @@ contract Vault {
   function confirmTransaction(uint256 txId) external notPaused onlyOwners {
     // require(!paused);
     // require(isOwner[msg.sender]);
+    if (confirmed[txId][msg.sender]) revert Vault__TransactionHasAlreadyBeenConfirmed();
+    
     Transaction storage txn = transactions[txId];
 
     // require(!txn.executed);
     if (txn.executed) revert Vault__TransactionHasAlreadyBeenExecuted();
 
     // require(!confirmed[txId][msg.sender]);
-    if (confirmed[txId][msg.sender]) revert Vault__TransactionHasAlreadyBeenConfirmed();
 
     confirmed[txId][msg.sender] = true;
 

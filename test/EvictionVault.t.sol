@@ -9,6 +9,17 @@ contract EvictionVaultTest is Test {
     error Vault__InsufficientFunds();
     error Vault__ContractIsPaused();
     error Vault__OnlyOwnerCanCallThisFunction();
+    error Vault__TransactionHasAlreadyBeenConfirmed();
+
+    struct Transaction {
+      address to;
+      uint256 value;
+      bytes data;
+      bool executed;
+      uint256 confirmations;
+      uint256 submissionTime;
+      uint256 executionTime;
+    }
 
     Vault public vault;
 
@@ -158,5 +169,49 @@ contract EvictionVaultTest is Test {
       assert(vault.isTransactionConfirmedByOwner(txCountBefore, owner) == true);
 
       vm.stopPrank();
+    }
+
+    function testCannotConfirmTransactionTwiceNeitherCanSubmitterConfirm() public {
+      // First Submit a Transaction
+      address owner = owners[0];
+
+      address to = address(0x1);
+      uint value = 123;
+      bytes memory data = bytes("");
+
+
+      vm.startPrank(owner);
+
+      uint txId = vault.getTxCount();
+
+      vault.submitTransaction(to, value, data);
+
+      // Confirmation Fails
+      vm.expectRevert(Vault__TransactionHasAlreadyBeenConfirmed.selector);
+      vault.confirmTransaction(txId);
+
+      vm.stopPrank();
+    }
+
+    function testSuccessfulyConfirms() public {
+      // First Submit a Transaction
+      address owner = owners[0];
+
+      address to = address(0x1);
+      uint value = 123;
+      bytes memory data = bytes("");
+
+
+      vm.startPrank(owner);
+
+      uint txId = vault.getTxCount();
+
+      vault.submitTransaction(to, value, data);
+
+      vm.stopPrank();
+
+      // Confirmation Succeeds
+      vm.prank(owners[1]);
+      vault.confirmTransaction(txId);
     }
 }
