@@ -42,9 +42,9 @@ error MultiSig__InvalidAddress();
         emit MerkleRootSet(root);
     }
 
-    function computeMerkleProof(bytes32[] calldata proof, uint256 amount) external view returns (bool) {
+    function computeMerkleProof(bytes32[] calldata proof, uint256 amount, address owner) external view returns (bool) {
         // require(!paused);
-        bytes32 leaf = keccak256(abi.encodePacked(msg.sender, amount));
+        bytes32 leaf = keccak256(abi.encodePacked(owner, amount));
         bytes32 computed = MerkleProof.processProof(proof, leaf);
 
         return computed == merkleRoot;

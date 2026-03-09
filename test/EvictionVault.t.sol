@@ -10,6 +10,8 @@ contract EvictionVaultTest is Test {
     error Vault__ContractIsPaused();
     error Vault__OnlyOwnerCanCallThisFunction();
     error Vault__TransactionHasAlreadyBeenConfirmed();
+    error Vault__UserNotVerified();
+    error Vault__AlreadyClaimed();
 
     struct Transaction {
       address to;
@@ -216,7 +218,6 @@ contract EvictionVaultTest is Test {
     }
 
     function testTransactionExecution() public {
-      // Deposit
       // First Submit a Transaction
       address owner = owners[0];
       vm.deal(owner, 3 ether);
@@ -247,5 +248,61 @@ contract EvictionVaultTest is Test {
       vault.executeTransaction(txId);
 
       assert(vault.getTransaction(txId).executed == true);
+    }
+
+    function testClaim() public {
+        address user1 = makeAddr("user1");
+        uint256 amount1 = 1 ether;
+        address user2 = makeAddr("user2");
+        uint256 amount2 = 2 ether;
+
+        bytes32 leaf1 = keccak256(abi.encodePacked(user1, amount1));
+        bytes32 leaf2 = keccak256(abi.encodePacked(user2, amount2));
+
+        // Sort leaves and compute root
+        bytes32 root;
+        if (leaf1 < leaf2) {
+            root = keccak256(abi.encodePacked(leaf1, leaf2));
+        } else {
+            root = keccak256(abi.encodePacked(leaf2, leaf1));
+        }
+
+        // Set Merkle root (only owners can do this)
+        vm.prank(owners[0]);
+        vault.setMerkleRoot(root);
+
+        // Fund vault so it has enough to pay out claims
+        vm.prank(owners[0]);
+        vm.deal(owners[0], 10 ether);
+        vault.deposit{value: 10 ether}();
+
+        // Prepare proof for user1
+        bytes32[] memory proof1 = new bytes32[](1);
+        proof1[0] = leaf2;
+
+        // User 1 claims
+        uint256 balanceBefore1 = user1.balance;
+        vm.prank(user1);
+        vault.claim(proof1, amount1);
+        assertEq(user1.balance, balanceBefore1 + amount1);
+
+        // Cannot claim twice
+        vm.expectRevert(Vault__AlreadyClaimed.selector);
+        vm.prank(user1);
+        vault.claim(proof1, amount1);
+
+        // User 2 claims
+        bytes32[] memory proof2 = new bytes32[](1);
+        proof2[0] = leaf1;
+        uint256 balanceBefore2 = user2.balance;
+        vm.prank(user2);
+        vault.claim(proof2, amount2);
+        assertEq(user2.balance, balanceBefore2 + amount2);
+
+        // Random user cannot claim with invalid proof
+        address attacker = makeAddr("attacker");
+        vm.expectRevert(Vault__UserNotVerified.selector);
+        vm.prank(attacker);
+        vault.claim(proof1, amount1);
     }
 }

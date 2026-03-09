@@ -25,6 +25,7 @@ contract Vault {
   error Vault__ClaimFailed();
   error Vault__EmergencyWithdrawFailed();
   error Vault__UserNotVerified();
+  error Vault__AlreadyClaimed();
 
   struct Transaction {
     address to;
@@ -176,8 +177,9 @@ contract Vault {
   }
 
   function claim(bytes32[] calldata proof, uint256 amount) external notPaused {
-    // require(!paused);
-    bool verified = multiSig.computeMerkleProof(proof, amount);
+    if (claimed[msg.sender]) revert Vault__AlreadyClaimed();
+    
+    bool verified = multiSig.computeMerkleProof(proof, amount, msg.sender);
 
     if (!verified) revert Vault__UserNotVerified();
 
