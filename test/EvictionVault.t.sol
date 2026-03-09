@@ -139,6 +139,24 @@ contract EvictionVaultTest is Test {
     }
 
     function testSuccessfullySubmitsTransaction() public {
-      
+      address owner = owners[0];
+
+      address to = address(0x1);
+      uint value = 123;
+      bytes memory data = bytes("");
+
+      uint txCountBefore = vault.getTxCount();
+
+      vm.startPrank(owner);
+
+      vault.submitTransaction(to, value, data);
+
+      uint txCountAfter = vault.getTxCount();
+
+      assertEq(txCountAfter, txCountBefore + 1);
+      assertEq(vault.getTransaction(txCountBefore).to, to);
+      assert(vault.isTransactionConfirmedByOwner(txCountBefore, owner) == true);
+
+      vm.stopPrank();
     }
 }

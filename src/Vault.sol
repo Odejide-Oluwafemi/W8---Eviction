@@ -228,4 +228,16 @@ contract Vault {
     function getBalanceOf(address user) external view returns(uint) {
       return balances[user];
     }
+
+    function getTransaction(uint id) external view returns (Transaction memory) {
+      return transactions[id];
+    }
+
+    function getTxCount() external view returns (uint) {
+      return txCount;
+    }
+
+    function isTransactionConfirmedByOwner(uint txId, address owner) external onlyOwners view returns (bool) {
+      return confirmed[txId][owner];
+    }
 }
