@@ -15,7 +15,7 @@ contract EvictionVault {
     error TransactionHasAlreadyBeenExecuted();
     error TransactionHasAlreadyBeenConfirmed();
     error InsufficientThresholdSigners();
-    error NotYetTimeToExecute();
+    error TransactionExecutionLocked();
     error TransactionExecutionFailed();
     error ClaimFailed();
     error EmergencyWithdrawFailed();
@@ -154,7 +154,7 @@ contract EvictionVault {
         // require(!txn.executed);
         if (txn.executed) revert TransactionHasAlreadyBeenExecuted();
         // require(block.timestamp >= txn.executionTime);
-        if (block.timestamp < txn.executionTime) revert NotYetTimeToExecute();
+        if (block.timestamp > txn.executionTime) revert TransactionExecutionLocked();
         txn.executed = true;
         (bool s,) = txn.to.call{value: txn.value}(txn.data);
         // require(s);
