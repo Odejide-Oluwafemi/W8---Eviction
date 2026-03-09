@@ -8,6 +8,7 @@ import {MultiSig} from "src/MultiSig.sol";
 contract EvictionVaultTest is Test {
     error Vault__InsufficientFunds();
     error Vault__ContractIsPaused();
+    error Vault__OnlyOwnerCanCallThisFunction();
 
     Vault public vault;
 
@@ -124,5 +125,20 @@ contract EvictionVaultTest is Test {
       vm.stopPrank();
     }
 
-    
+    function testANonRegisteredOwnerCannotSubmitTransaction() public {
+      address to = address(0x1);
+      uint value = 123;
+      bytes memory data = bytes("");
+
+      vm.startPrank(to);
+      vm.expectRevert(Vault__OnlyOwnerCanCallThisFunction.selector);
+
+      vault.submitTransaction(to, value, data);
+
+      vm.stopPrank();
+    }
+
+    function testSuccessfullySubmitsTransaction() public {
+      
+    }
 }
