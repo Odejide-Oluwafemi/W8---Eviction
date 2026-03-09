@@ -1,66 +1,29 @@
-## Foundry
+# Week 8 - Eviction Test Day 1
 
-**Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
+## Project Description
+To refactor the existing monolithic EvictionVault smart contract into a secure, modular architecture and implement immediate mitigation for critical security vulnerabilities within a three-hour time frame.
+The core task involves the decomposition of the single-file EvictionVault contract into a logically structured, multi-file project.
 
-Foundry consists of:
+Concurrently, the following critical vulnerabilities must be addressed and secured:
+* setMerkleRoot Callable by Anyone
+* emergencyWithdrawAll Public Drain
+* pause/unpause Single Owner Control
+* receive() Uses tx.origin
+* withdraw & claim Uses .transfer
+* Timelock Execution (This is listed as a check, but often implies a potential issue if not correctly implemented)
 
-- **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
-- **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
-- **Anvil**: Local Ethereum node, akin to Ganache, Hardhat Network.
-- **Chisel**: Fast, utilitarian, and verbose solidity REPL.
+### Deliverables
+* A complete, modular project structure (eliminating the single-file monolith).
+* Clean contract compilation (verified via forge build).
+* A suite of 4–6 basic positive tests that pass successfully.
+* A README file detailing the implemented fixes and the current state of the contract.
 
-## Documentation
+---
 
-https://book.getfoundry.sh/
-
-## Usage
-
-### Build
-
-```shell
-$ forge build
-```
-
-### Test
-
-```shell
-$ forge test
-```
-
-### Format
-
-```shell
-$ forge fmt
-```
-
-### Gas Snapshots
-
-```shell
-$ forge snapshot
-```
-
-### Anvil
-
-```shell
-$ anvil
-```
-
-### Deploy
-
-```shell
-$ forge script script/Counter.s.sol:CounterScript --rpc-url <your_rpc_url> --private-key <your_private_key>
-```
-
-### Cast
-
-```shell
-$ cast <subcommand>
-```
-
-### Help
-
-```shell
-$ forge --help
-$ anvil --help
-$ cast --help
-```
+## My Implemented Fixes
+* I split the project into two files: ```Multisig.sol``` (which handles the multisig logic), the ```Vault.sol``` (which contains the vault logic)
+* Refactored ```require``` statements into more gas-efficient Custom Errors
+* Changed all variables to ```private``` and created an appropriate getter function for them
+* Fixed the TimeLock logic in the ```executeTransaction``` function
+* Implemented Access Control using modifiers.
+* Wrote test suites to ensure logic correctness
