@@ -5,6 +5,21 @@ import {MerkleProof} from "@openzeppelin/contracts/utils/cryptography/MerkleProo
 import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 
 contract EvictionVault {
+    // Errors
+    error NoOwners();
+    error OnlyOwnerCanCallThisFunction();
+    error WithdrawFailed();
+    error InvalidAddress();
+    error ContractIsPaused();
+    error InsufficientFunds();
+    error TransactionHasAlreadyBeenExecuted();
+    error TransactionHasAlreadyBeenConfirmed();
+    error InsufficientThresholdSigners();
+    error NotYetTimeToExecute();
+    error TransactionExecutionFailed();
+    error ClaimFailed();
+    error EmergencyWithdrawFailed();
+
     struct Transaction {
         address to;
         uint256 value;
@@ -48,22 +63,36 @@ contract EvictionVault {
     event Claim(address indexed claimant, uint256 amount);
 
     constructor(address[] memory _owners, uint256 _threshold) payable {
-        require(_owners.length > 0, "no owners");
+        // require(_owners.length > 0, "no owners");
+        if (_owners.length == 0) revert NoOwners();
         threshold = _threshold;
 
         for (uint i = 0; i < _owners.length; i++) {
             address o = _owners[i];
-            require(o != address(0));
+            // require(o != address(0));
+            if (o == address(0)) revert InvalidAddress();
             isOwner[o] = true;
             owners.push(o);
         }
         totalVaultValue = msg.value;
     }
 
+    // Modifiers
+    modifier onlyOwners() {
+        if (!isOwner[msg.sender]) revert OnlyOwnerCanCallThisFunction();
+
+        _;
+    }
+
+    modifier notPaused() {
+        if (paused) revert ContractIsPaused();
+        _;
+    }
+
     receive() external payable {
-        balances[tx.origin] += msg.value;
+        balances[msg.sender] += msg.value;
         totalVaultValue += msg.value;
-        emit Deposit(tx.origin, msg.value);
+        emit Deposit(msg.sender, msg.value);
     }
 
     function deposit() external payable {
@@ -72,18 +101,22 @@ contract EvictionVault {
         emit Deposit(msg.sender, msg.value);
     }
 
-    function withdraw(uint256 amount) external {
-        require(!paused, "paused");
-        require(balances[msg.sender] >= amount);
+    function withdraw(uint256 amount) external notPaused {
+        // require(!paused, "paused");
+
+        // require(balances[msg.sender] >= amount);
+        if (balances[msg.sender] < amount) revert InsufficientFunds();
         balances[msg.sender] -= amount;
         totalVaultValue -= amount;
-        payable(msg.sender).transfer(amount);
+        // payable(msg.sender).transfer(amount);
+        (bool success, ) = msg.sender.call{value: amount}("");
+        if (!success) revert WithdrawFailed();
         emit Withdrawal(msg.sender, amount);
     }
 
-    function submitTransaction(address to, uint256 value, bytes calldata data) external {
-        require(!paused);
-        require(isOwner[msg.sender]);
+    function submitTransaction(address to, uint256 value, bytes calldata data) external notPaused onlyOwners {
+        // require(!paused);
+        // require(isOwner[msg.sender]);
         uint256 id = txCount++;
         transactions[id] = Transaction({
             to: to,
@@ -98,12 +131,14 @@ contract EvictionVault {
         emit Submission(id);
     }
 
-    function confirmTransaction(uint256 txId) external {
-        require(!paused);
-        require(isOwner[msg.sender]);
+    function confirmTransaction(uint256 txId) external notPaused onlyOwners {
+        // require(!paused);
+        // require(isOwner[msg.sender]);
         Transaction storage txn = transactions[txId];
-        require(!txn.executed);
-        require(!confirmed[txId][msg.sender]);
+        // require(!txn.executed);
+        if (txn.executed) revert TransactionHasAlreadyBeenExecuted();
+        // require(!confirmed[txId][msg.sender]);
+        if (confirmed[txId][msg.sender]) revert TransactionHasAlreadyBeenConfirmed();
         confirmed[txId][msg.sender] = true;
         txn.confirmations++;
         if (txn.confirmations == threshold) {
@@ -114,28 +149,34 @@ contract EvictionVault {
 
     function executeTransaction(uint256 txId) external {
         Transaction storage txn = transactions[txId];
-        require(txn.confirmations >= threshold);
-        require(!txn.executed);
-        require(block.timestamp >= txn.executionTime);
+        // require(txn.confirmations >= threshold);
+        if (txn.confirmations < threshold) revert InsufficientThresholdSigners();
+        // require(!txn.executed);
+        if (txn.executed) revert TransactionHasAlreadyBeenExecuted();
+        // require(block.timestamp >= txn.executionTime);
+        if (block.timestamp < txn.executionTime) revert NotYetTimeToExecute();
         txn.executed = true;
         (bool s,) = txn.to.call{value: txn.value}(txn.data);
-        require(s);
+        // require(s);
+        if (!s) revert TransactionExecutionFailed();
         emit Execution(txId);
     }
 
-    function setMerkleRoot(bytes32 root) external {
+    function setMerkleRoot(bytes32 root) external onlyOwners {
         merkleRoot = root;
         emit MerkleRootSet(root);
     }
 
-    function claim(bytes32[] calldata proof, uint256 amount) external {
-        require(!paused);
+    function claim(bytes32[] calldata proof, uint256 amount) external notPaused {
+        // require(!paused);
         bytes32 leaf = keccak256(abi.encodePacked(msg.sender, amount));
         bytes32 computed = MerkleProof.processProof(proof, leaf);
         require(computed == merkleRoot);
         require(!claimed[msg.sender]);
         claimed[msg.sender] = true;
-        payable(msg.sender).transfer(amount);
+        // payable(msg.sender).transfer(amount);
+        (bool success, ) = msg.sender.call{value: amount} ("");
+        if(!success) revert ClaimFailed();
         totalVaultValue -= amount;
         emit Claim(msg.sender, amount);
     }
@@ -150,17 +191,24 @@ contract EvictionVault {
         // return messageHash.verify()
     }
 
-    function emergencyWithdrawAll() external {
+    function emergencyWithdrawAll() external onlyOwners {
         // payable(msg.sender).transfer(address(this).balance);
 
         (bool success, ) = msg.sender.call{value: address(this).balance}("");
+        
+        if (!success) revert EmergencyWithdrawFailed();
+        // require(success, "Emergency Withdrawal Failed");
 
         totalVaultValue = 0;
     }
 
-    function pause() external {
-        require(isOwner[msg.sender]);
+    function pause() external onlyOwners {
+        // require(isOwner[msg.sender]);
         paused = true;
     }
 
-    function unpause() external {
+    function unpause() external onlyOwners {
+        // require(isOwner[msg.sender]);
+        paused = false;
+    }
+}
