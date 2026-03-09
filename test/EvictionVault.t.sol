@@ -6,6 +6,9 @@ import {Vault} from "src/Vault.sol";
 import {MultiSig} from "src/MultiSig.sol";
 
 contract EvictionVaultTest is Test {
+    error Vault__InsufficientFunds();
+    error Vault__ContractIsPaused();
+
     Vault public vault;
 
     address[] owners = [
@@ -59,5 +62,50 @@ contract EvictionVaultTest is Test {
 
       assert(balanceAfter == (balanceBefore + depositAmount));
       assert(totalVaultValueAfter == (totalVaultValueBefore + depositAmount));
+    }
+
+    function testCannotWithdrawWithInsufficientFunds() public {
+      vm.startPrank(owners[0]);
+
+      vm.expectRevert(Vault__InsufficientFunds.selector);
+      vault.withdraw(123);
+
+      vm.stopPrank();
+    }
+
+    function testCannotWithdrawWhenVaultIsPaused() public {
+      vm.startPrank(owners[0]);
+
+      vault.pause();
+
+      vm.expectRevert(Vault__ContractIsPaused.selector);
+      vault.withdraw(123);
+
+      vm.stopPrank();
+    }
+
+    function testSuccessfullyWithdraws() public {
+      // Deposit First
+      address user = owners[0];
+
+      uint depositAmount = 1 ether;
+
+      vm.deal(user, depositAmount);
+      vm.prank(user);
+
+      vault.deposit{value: depositAmount}();
+
+      uint balanceBeforeWithdraw = vault.getBalanceOf(user);
+      uint totalVaultValueBeforeWithdraw = vault.getTotalVaultValue();
+
+      // Withdraw
+      vm.prank(user);
+      vault.withdraw(depositAmount);
+
+      uint balanceAfterWithdraw = vault.getBalanceOf(user);
+      uint totalVaultValueAfterWithdraw = vault.getTotalVaultValue();
+
+      assertEq(balanceAfterWithdraw, balanceBeforeWithdraw - depositAmount);
+      assertEq(totalVaultValueAfterWithdraw, totalVaultValueBeforeWithdraw - depositAmount);
     }
 }
